@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>강릉 육각형 트립 (Hexa-Trip)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* 스타일 정의 */
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #app-container {
+            width: 400px;
+            height: 800px;
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        #header {
+            background: linear-gradient(135deg, #03C75A 0%, #008f3d 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            position: relative;
+        }
+        #lang-btn {
+            position: absolute;
+            right: 15px; top: 50%; transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: white; font-size: 0.8rem; padding: 5px 10px;
+            border-radius: 15px; cursor: pointer;
+        }
+        #chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+        }
+        .message {
+            max-width: 85%;
+            padding: 12px 16px; margin-bottom: 12px;
+            border-radius: 15px; line-height: 1.4; font-size: 0.95rem;
+            animation: popIn 0.3s;
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .bot-message { background-color: #e9ecef; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .user-message { background-color: #03C75A; color: white; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 2px; text-align: right; }
+
+        #input-area {
+            background-color: #fff; padding: 20px; border-top: 1px solid #eee;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .slider-labels { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: bold; color: #666; }
+        .slider-value { text-align: center; font-size: 1.5rem; font-weight: 800; color: #03C75A; margin: 5px 0; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: #03C75A; }
+        
+        #send-btn {
+            background-color: #03C75A; color: white; border: none; padding: 14px;
+            border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; margin-top: 5px;
+        }
+
+        #action-area {
+            display: none; padding: 15px; background: #fff; text-align: center; border-top: 1px solid #eee;
+        }
+        .action-btn {
+            padding: 12px 20px; border-radius: 10px; border: none; font-weight: bold;
+            cursor: pointer; margin: 0 5px; font-size: 0.9rem;
+        }
+        .btn-yes { background-color: #03C75A; color: white; }
+        .btn-no { background-color: #e9ecef; color: #333; }
+
+        #chart-wrapper {
+            display: none; background: #fff; padding: 15px; border-radius: 15px;
+            margin-top: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        /* 버튼 그룹 스타일 */
+        .btn-group {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .link-btn {
+            flex: 1;
+            padding: 10px 0;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-decoration: none;
+            transition: 0.2s;
+            border: 1px solid #ddd;
+        }
+        .map-btn { background-color: #fff; color: #03C75A; border-color: #03C75A; }
+        .map-btn:hover { background-color: #03C75A; color: white; }
+        
+        .photo-btn { background-color: #fff; color: #555; }
+        .photo-btn:hover { background-color: #f1f3f5; color: #333; }
+
+        /* [추가] 결과 대표 이미지 스타일 */
+        .result-main-img {
+            width: 100%;
+            height: 220px;       /* 높이를 살짝 키워 시원하게 보여줍니다 */
+            object-fit: cover;   /* 중요: 비율 유지하며 꽉 채우기 */
+            border-radius: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); /* 그림자도 좀 더 진하게 */
+            animation: popIn 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="header">
+        <span id="header-title">🔮 육각형 여행 생성기</span>
+        <button id="lang-btn" onclick="toggleLanguage()">🇺🇸 EN</button>
+    </div>
+    
+    <div id="chat-box"></div>
+    
+    <div id="input-area">
+        <div class="slider-value"><span id="current-val">5</span></div>
+        <div class="slider-labels">
+            <span id="label-left">Left</span>
+            <span id="label-right">Right</span>
+        </div>
+        <input type="range" id="range-slider" min="1" max="10" value="5" oninput="updateDisplay(this.value)">
+        <button id="send-btn" onclick="submitAnswer()">선택 완료</button>
+    </div>
+
+    <div id="action-area">
+        <button class="action-btn btn-yes" onclick="recommendPlan()">👍 Yes, Please!</button>
+        <button class="action-btn btn-no" onclick="location.reload()">🔄 Retry</button>
+    </div>
+</div>
+
+<script>
+    // -----------------------------------------------------------
+    // [데이터 1] 결과 유형별 대표 이미지 (변수 분리 완료)
+    // -----------------------------------------------------------
+    const typeImages = {
+        "도시 핫플 투어러": "https://i.postimg.cc/NLZR9DBz/dosi-haspeul-tueoleo.jpg",
+        "익스트림 액티비티 러버": "https://i.postimg.cc/PN01pydG/igseuteulim-aegtibiti-leobeo.jpg",
+        "미슐랭 가이드 미식가": "https://i.postimg.cc/V5JjkpP1/misyullaeng-gaideu-misigga.jpg",
+        "인싸 파티 피플": "https://i.postimg.cc/9zsyRbcj/inssa-pati-pipeul.jpg",
+        "드라이브 마스터": "https://i.postimg.cc/Z0Wr52zz/deulaibeu-maseuteo.jpg",
+        "나노 단위 계획러": "https://i.postimg.cc/w31hjZ8b/nano-dan-wi-gyehoegleo.jpg",
+        "여유로운 힐링 요정": "https://i.postimg.cc/YjTQGRtq/yeoyuloun-hilling-yojeong.png"
+    };
+
+    // -----------------------------------------------------------
+    // [데이터 2] 강릉 여행지 추천 데이터
+    // -----------------------------------------------------------
+    const recommendationData = {
+        "도시 핫플 투어러": [
+            { name: "허균·허난설헌 기념공원", type: "명소", desc: "조선시대 문인의 숨결을 느낄 수 있는 도심 속 힐링 공원" },
+            { name: "주문진항", type: "명소", desc: "활기찬 동해안의 대표 항구와 오징어 동상" },
+            { name: "강릉카페거리", type: "핫플", desc: "바다 바로 앞 카페들이 줄지어 선 거리" }, 
+            { name: "고래책방", type: "문화", desc: "빵 굽는 냄새가 나는 따뜻한 서점" } 
+        ],
+        "익스트림 액티비티 러버": [
+            { name: "염전해변", type: "캠핑", desc: "조용한 해변에서의 차박 캠핑" },
+            { name: "강릉안반데기", type: "트레킹", desc: "고랭지 배추밭과 쏟아지는 별" }, 
+            { name: "남항진해변(짚라인)", type: "레포츠", desc: "바다 위를 가르는 짚라인" },
+            { name: "정동진 레일바이크", type: "액티비티", desc: "바다 옆 기찻길 레일바이크" }
+        ],
+        "미슐랭 가이드 미식가": [
+            { name: "게락", type: "카페", desc: "로스팅 기계가 있는 커피 전문점" }, 
+            { name: "강문어화횟집", type: "맛집", desc: "신선한 회 한 상 차림" }, 
+            { name: "엔드투앤드", type: "카페", desc: "소나무 정원이 보이는 통유리 카페" }, 
+            { name: "메밀골동해막국수", type: "맛집", desc: "시원하고 고소한 막국수" }
+        ],
+        "인싸 파티 피플": [
+            { name: "강릉 주문진시장", type: "시장", desc: "싱싱한 해산물이 가득한 시장" }, 
+            { name: "강릉 중앙시장", type: "시장", desc: "닭강정과 호떡 등 길거리 음식" }, 
+            { name: "버드나무 브루어리", type: "펍", desc: "오래된 양조장 느낌의 펍" }, 
+            { name: "강릉네컷", type: "놀거리", desc: "친구들과 찍는 인생네컷" }
+        ],
+        "드라이브 마스터": [
+            { name: "헌화로", type: "드라이브", desc: "바다 바로 옆을 달리는 해안 도로" },
+            { name: "옥계해변", type: "자연", desc: "울창한 송림과 넓은 백사장" },
+            { name: "7번 국도", type: "드라이브", desc: "끝없이 이어지는 동해안 도로" },
+            { name: "염전해변", type: "드라이브", desc: "잠시 차를 세우고 바다 감상" }
+        ],
+        "나노 단위 계획러": [
+            { name: "등명해변", type: "명소", desc: "기찻길 옆 낭만적인 해변 산책로" },
+            { name: "애시당초", type: "카페", desc: "레트로 감성 가득한 인테리어와 시그니처 커피" },
+            { name: "오죽헌", type: "문화", desc: "검은 대나무 숲과 한옥" },
+            { name: "하슬라아트월드", type: "예술", desc: "바다가 보이는 야외 조각 공원" }
+        ],
+        "여유로운 힐링 요정": [
+            { name: "대관령박물관", type: "문화", desc: "산속에 있는 고즈넉한 박물관" },
+            { name: "강릉커피박물관", type: "휴식", desc: "커피 향 가득한 전시관" },
+            { name: "국립대관령자연휴양림", type: "자연", desc: "울창한 소나무 숲길 산책" },
+            { name: "순긋해변", type: "해변", desc: "사람이 적고 물이 맑은 해변" }
+        ]
+    };
+
+    // 변수 설정
+    const chatBox = document.getElementById('chat-box');
+    const inputArea = document.getElementById('input-area');
+    const actionArea = document.getElementById('action-area');
+    const headerTitle = document.getElementById('header-title');
+    const langBtn = document.getElementById('lang-btn');
+    const sendBtn = document.getElementById('send-btn');
+    
+    let isEnglish = false;
+    let step = 0;
+    let scores = [];
+    let resultType = "";
+
+    // 다국어 데이터
+    const langData = {
+        ko: {
+            title: "🔮 육각형 여행 생성기", btn: "🇺🇸 EN",
+            intro: "반갑습니다! 👋<br>당신의 성향을 분석해 <b>'육각형 여행 계획'</b>을 짜드릴게요.",
+            intro2: "질문을 보고, 더 끌리는 쪽으로 점수를 조절해주세요.",
+            selectBtn: "선택 완료",
+            analyzing: "모든 답변이 완료되었습니다.<br>당신의 <b>여행 육각형</b>을 분석 중입니다... 🧠",
+            types: ["도시 핫플 투어러", "익스트림 액티비티 러버", "미슐랭 가이드 미식가", "인싸 파티 피플", "드라이브 마스터", "나노 단위 계획러"],
+            healing: "여유로운 힐링 요정",
+            resultMsg: (type) => `당신의 타입은...<br>✨ <b>[${type}]</b> ✨ 입니다!<br><br>추천 코스를 확인해볼까요?`,
+            healingMsg: (type) => `당신은 <b>[${type}]</b> 타입입니다.<br>아무것도 안 하고 힐링하고 싶으시군요!`,
+            plan: "🚗 <b>추천 여행 계획</b>을 생성 중입니다..."
+        },
+        en: {
+            title: "🔮 Travel Hexagon", btn: "🇰🇷 KO",
+            intro: "Hello! 👋<br>Let's find your <b>Travel Hexagon</b> style.",
+            intro2: "Adjust the slider based on your preference.",
+            selectBtn: "Submit",
+            analyzing: "Analyzing your <b>Travel DNA</b>... 🧠",
+            types: ["City Explorer", "Extreme Activity Lover", "Michelin Gourmand", "Party People", "Drive Master", "Nano Planner"],
+            healing: "Relaxing Fairy",
+            resultMsg: (type) => `Your type is...<br>✨ <b>[${type}]</b> ✨!`,
+            healingMsg: (type) => `You are a <b>[${type}]</b>.`,
+            plan: "🚗 Generating <b>Travel Plan</b>..."
+        }
+    };
+
+    const questions = [
+        { q: "여행 분위기는?", q_en: "Atmosphere?", left: "🌲 자연/힐링", left_en: "🌲 Nature", right: "🏙️ 도시/핫플", right_en: "🏙️ City" },
+        { q: "여행 방식은?", q_en: "Activity Level?", left: "🛌 휴식 위주", left_en: "🛌 Relax", right: "🔥 체험 위주", right_en: "🔥 Active" },
+        { q: "여행 목적은?", q_en: "Main Focus?", left: "📸 사진/감성", left_en: "📸 Photo", right: "🍽️ 맛집/먹방", right_en: "🍽️ Food" },
+        { q: "누구와 함께?", q_en: "Group Size?", left: "🤫 소수/커플", left_en: "🤫 Small/Couple", right: "🎉 다수/친구", right_en: "🎉 Party/Friends" },
+        { q: "교통 수단은?", q_en: "Transport?", left: "🚌 대중교통", left_en: "🚌 Public", right: "🚗 자차/렌트", right_en: "🚗 Car/Rent" },
+        { q: "일정 밀도는?", q_en: "Schedule?", left: "🐢 여유롭게", left_en: "🐢 Chill", right: "🐇 빡빡하게", right_en: "🐇 Tight" }
+    ];
+
+    window.onload = () => { startIntro(); };
+
+    function startIntro() {
+        chatBox.innerHTML = ""; step = 0; scores = [];
+        inputArea.style.display = 'flex'; actionArea.style.display = 'none';
+        const txt = isEnglish ? langData.en : langData.ko;
+        sendBtn.innerText = txt.selectBtn;
+        addMessage("bot", txt.intro);
+        setTimeout(() => { addMessage("bot", txt.intro2); setTimeout(nextQuestion, 800); }, 500);
+    }
+
+    function addMessage(sender, text) {
+        const div = document.createElement('div');
+        div.className = `message ${sender}-message`;
+        div.innerHTML = text;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    window.updateDisplay = function(val) { document.getElementById('current-val').innerText = val; }
+
+    window.submitAnswer = function() {
+        const val = parseInt(document.getElementById('range-slider').value);
+        scores.push(val);
+        addMessage('user', val);
+        step++;
+        if (step < questions.length) setTimeout(nextQuestion, 500);
+        else setTimeout(showResult, 500);
+    }
+
+    function nextQuestion() {
+        const q = questions[step];
+        addMessage('bot', `Q${step+1}. ${isEnglish ? q.q_en : q.q}`);
+        document.getElementById('label-left').innerText = isEnglish ? q.left_en : q.left;
+        document.getElementById('label-right').innerText = isEnglish ? q.right_en : q.right;
+        document.getElementById('range-slider').value = 5;
+        updateDisplay(5);
+    }
+
+    function showResult() {
+        inputArea.style.display = 'none';
+        const txt = isEnglish ? langData.en : langData.ko;
+        addMessage('bot', txt.analyzing);
+
+        setTimeout(() => {
+            // 1. 결과 타입 분석
+            let koreanTypeKey = ""; // 이미지 찾기용 한국어 키
+            
+            const isHealing = scores.every(s => s >= 4 && s <= 6);
+            if (isHealing) {
+                resultType = isEnglish ? langData.en.healing : langData.ko.healing;
+                koreanTypeKey = "여유로운 힐링 요정"; // 힐링 타입 고정 키
+            } else {
+                let maxVal = -1, maxIndex = 0;
+                scores.forEach((s, i) => {
+                    const dist = Math.abs(s - 5);
+                    if (dist > maxVal) { maxVal = dist; maxIndex = i; }
+                });
+                resultType = isEnglish ? langData.en.types[maxIndex] : langData.ko.types[maxIndex];
+                // 영어일 경우 한국어 키를 찾아야 함
+                koreanTypeKey = langData.ko.types[maxIndex]; 
+            }
+            
+            // 2. [핵심] 결과 이미지 태그 생성
+            // koreanTypeKey를 이용해 typeImages에서 주소를 가져옵니다.
+            const imgUrl = typeImages[koreanTypeKey] || "https://via.placeholder.com/400"; 
+            const imgTag = `<img src="${imgUrl}" class="result-main-img"><br>`;
+
+            // 3. 메시지 조합 (이미지 + 텍스트)
+            const resultMsg = isHealing ? txt.healingMsg(resultType) : txt.resultMsg(resultType);
+            
+            // 봇 메시지로 이미지와 글을 한 번에 보냄
+            addMessage('bot', imgTag + resultMsg);
+
+            // 4. 레이더 차트 그리기
+            const chartDiv = document.createElement('div');
+            chartDiv.id = 'chart-wrapper';
+            chartDiv.style.display = 'block';
+            chartDiv.innerHTML = '<canvas id="radarChart"></canvas>';
+            chatBox.appendChild(chartDiv);
+
+            new Chart(document.getElementById('radarChart'), {
+                type: 'radar',
+                data: {
+                    labels: isEnglish ? ['Urban', 'Active', 'Food', 'Social', 'Car', 'Plan'] : ['도시성', '활동성', '식도락', '사교성', '편의성', '계획성'],
+                    datasets: [{
+                        label: 'My Style', data: scores,
+                        backgroundColor: 'rgba(3, 199, 90, 0.2)', borderColor: '#03C75A', pointBackgroundColor: '#008f3d'
+                    }]
+                },
+                options: { scales: { r: { min: 0, max: 10, ticks: { display: false } } }, plugins: { legend: { display: false } } }
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+            actionArea.style.display = 'block';
+        }, 1500);
+    }
+
+    // ---------------------------------------------------------
+    // ★ 추천 로직: 지도와 사진을 "버튼"으로 제공
+    // ---------------------------------------------------------
+    window.recommendPlan = function() {
+        actionArea.style.display = 'none';
+        const txt = isEnglish ? langData.en : langData.ko;
+        addMessage('bot', txt.plan);
+
+        setTimeout(() => {
+            let searchKey = resultType;
+            if(isEnglish) {
+                const enIndex = langData.en.types.indexOf(resultType);
+                if(enIndex !== -1) searchKey = langData.ko.types[enIndex];
+                else if(resultType === langData.en.healing) searchKey = langData.ko.healing;
+            }
+
+            const places = recommendationData[searchKey];
+
+            if (places) {
+                const shuffled = [...places].sort(() => 0.5 - Math.random());
+                const selected = shuffled.slice(0, 3);
+
+                let msg = `<b>[${resultType}]</b> ${isEnglish ? "Course:" : "추천 코스:"}<br><br>`;
+                
+                selected.forEach((p, i) => {
+                    msg += `<b>${i+1}. ${p.name}</b> <small style='color:#03C75A'>(${p.type})</small><br>`;
+                    msg += `<span style='color:#555; font-size:0.9em; display:block; margin-bottom:5px;'>${p.desc}</span>`;
+                    
+                    // [버튼 그룹] 지도 보기 + 사진 보기
+                    msg += `<div class="btn-group">
+                                <a href="https://map.naver.com/v5/search/${encodeURIComponent(p.name)}" target="_blank" class="link-btn map-btn">🗺️ 네이버 지도</a>
+                                <a href="https://www.google.com/search?tbm=isch&q=강릉+${p.name}" target="_blank" class="link-btn photo-btn">📸 실제 사진</a>
+                            </div><br>`;
+                });
+                
+                addMessage('bot', msg);
+                addMessage('bot', isEnglish ? "How is this plan? 😉" : "이 코스로 떠나보는 건 어때요? 😉");
+            }
+        }, 1500);
+    }
+    
+    window.toggleLanguage = function() {
+        isEnglish = !isEnglish;
+        langBtn.innerText = isEnglish ? langData.en.btn : langData.ko.btn;
+        document.getElementById('header-title').innerText = isEnglish ? langData.en.title : langData.ko.title;
+        startIntro();
+    }
+</script>
+</body>
+</html> 이거 그대로 붙여넣기 했는데 commit뉴파일 버튼이 안 눌려 빨간색으로 떠 코드가 잘 못 된 거면 너가 붙여넣기 바로 할 수 있게 코드 만들어줄수있어?
